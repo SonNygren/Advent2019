@@ -7,7 +7,7 @@ import (
 
 func main() {
 
-	if err := day1.Part1(); err != nil {
+	if err := day3.Part1(); err != nil {
 		fmt.Printf("err: %v\n", err.Error())
 	}
 
