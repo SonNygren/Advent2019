@@ -12,10 +12,3 @@ func main() {
 	}
 
 }
-
-//err := day3.Part1()
-//	if err != nil {
-//		fmt.Printf("err: %v\n", err.Error())
-//	}
-
-

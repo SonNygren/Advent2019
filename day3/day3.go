@@ -3,223 +3,181 @@ package day3
 import (
 	"advent2019/reader"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 )
 
 func Part1() error {
-
 	input, err := reader.ParseAsString("day3/input")
 	if err != nil {
 		return err
 	}
 
-	wirePath := [][]string{}
+	wirePaths := [][]string{}
 	for _, v := range input {
-		wirePath = append(wirePath, strings.Split(v, ","))
+		wirePaths = append(wirePaths, strings.Split(v, ","))
 	}
 
-	//for _, item := range wirePath[0] {
-	//	fmt.Printf("item[0]: %v\n", string(item[0]))
-	//	fmt.Printf("item[1:]: %v\n", string(item[1:]))
-	//}
-	//getPositions()
-	return nil
-}
-
-func visualize(wirePath [][]string) error {
-	//wires := []byte(wirePath)
-	err := os.WriteFile("day3/output", []byte{}, 5)
-	if err != nil {
-		return err
+	wires := []Wire{}
+	for _, path := range wirePaths {
+		wire, err := TraverseWire(path)
+		if err != nil {
+			return err
+		}
+		wires = append(wires, wire)
 	}
 
-	return nil
-}
+	res := GetPositions(wires[0], wires[1])
 
-type Point struct {
-	X int
-	Y int
-}
+	shortest := res[0].LenghtTraveled
 
-type Wire struct {
-	Path   []string
-	Plot   map[string][]int
-	Points []Point
-}
-
-func TraverseWire() error {
-
-	wires := []Wire{
-		{
-			Path:   []string{"R5", "U4"},
-			Plot:   map[string][]int{},
-			Points: []Point{},
-		},
-		{
-			Path:   []string{"U2", "R10"},
-			Plot:   map[string][]int{},
-			Points: []Point{},
-		},
-	}
-	count := 0
-
-	pons := map[int]Point{}
-
-	for _, wire := range wires {
-
-		xPos := 0
-		yPos := 0
-		wire.Plot["0,0"] = append(wire.Plot["0,0"], 0)
-		pons[count] = Point{X: 0, Y: 0}
-		for index, value := range wire.Path {
-			count++
-
-			switch string(value[0]) {
-			case R:
-				v, _ := strconv.Atoi(value[1:])
-				xPos, _ = routeWire(wire.Plot, index, xPos+v, yPos)
-				pons[count] = Point{
-					X: xPos,
-					Y: yPos,
-				}
-			case L:
-				v, _ := strconv.Atoi(value[1:])
-				xPos, _ = routeWire(wire.Plot, index, xPos-v, yPos)
-				pons[count] = Point{
-					X: xPos,
-					Y: yPos,
-				}
-
-			case U:
-				v, _ := strconv.Atoi(value[1:])
-				_, yPos = routeWire(wire.Plot, index, xPos, yPos+v)
-				pons[count] = Point{
-					X: xPos,
-					Y: yPos,
-				}
-
-			case D:
-				v, _ := strconv.Atoi(value[1:])
-				_, yPos = routeWire(wire.Plot, index, xPos, yPos-v)
-				pons[count] = Point{
-					X: xPos,
-					Y: yPos,
-				}
-			}
+	for _, crossCoords := range res {
+		fmt.Printf("crossCoords: %v\n", crossCoords)
+		if crossCoords.LenghtTraveled < shortest {
+			shortest = crossCoords.LenghtTraveled
 		}
 	}
-	fmt.Printf("pons3: %v\n", pons)
+	fmt.Printf("shortest: %v\n", shortest)
 
-	f := []Point{}
-	q := []Point{}
-
-	for i := 0; i <= 2; i++ {
-		f = append(f, pons[i])
+	smallest := turnPositive(res[0].X) + turnPositive(res[0].Y)
+	for _, p := range res {
+		dist := turnPositive(p.X) + turnPositive(p.Y)
+		if dist < smallest {
+			smallest = dist
+		}
 	}
-	for i := 3; i <= 5; i++ {
-		q = append(q, pons[i])
-	}
-	fmt.Printf("f: %v\n", f)
-	fmt.Printf("q: %v\n", q)
-	xs := getPositions(f, q)
 
-	fmt.Printf("xs: %v\n", xs)
+	fmt.Printf("smallest: %v\n", smallest)
 	return nil
 }
 
-func getBorders(borderA, borderB int) (int, int) {
-	if borderB < borderA {
-		temp := borderA
-		borderA = borderB
-		borderB = temp
+func turnPositive(num int) int {
+	if num < 0 {
+		return num * -1
 	}
-	return borderA, borderB
+	return num
 }
 
-func getPositions(pointsA, pointsB []Point) []Point {
+func TraverseWire(path []string) (Wire, error) {
+	wire := Wire{
+		Travaled: map[Point]int{},
+		Points:   map[int]Point{},
+	}
+	startPoint := Point{0, 0, 0}
+	wire.Points[0] = startPoint
+
+	xPos := 0
+	yPos := 0
+	traveled := 0
+
+	for index, value := range path {
+		direction := string(value[0])
+		movement, err := strconv.Atoi(value[1:])
+		if err != nil {
+			return Wire{}, fmt.Errorf("failed to parse movement Err: %v", err.Error())
+		}
+		switch direction {
+		case R:
+			xPos += movement
+		case L:
+			xPos -= movement
+		case U:
+			yPos += movement
+		case D:
+			yPos -= movement
+		}
+
+		traveled += movement
+		point := Point{xPos, yPos, traveled}
+		wire.Travaled[point] = traveled
+		wire.Points[index+1] = point
+	}
+	return wire, nil
+}
+
+func GetPositions(wireA, wireB Wire) []Point {
 	Xings := []Point{}
-	for i := 1; i < len(pointsA); i++ {
-
-		xled := false
-		start := 0
-		end := 0
-		wireACurrentX := pointsA[i].X
-		wireAMinusOne := pointsA[i-1].X
-		if wireACurrentX == wireAMinusOne { // vertical ram
-			start, end = getBorders(pointsA[i].Y, pointsA[i-1].Y) // om wireA inte ändras på X axeln, titta på vilket värde som är större eller midnre
-			xled = true
-		} else { // horizontel ram
-			start, end = getBorders(pointsA[i].X, pointsA[i-1].X)
-			xled = false
+	for i := 1; i < len(wireA.Points); i++ {
+		lineA := Line{
+			Travaled: wireA.Travaled,
+			Start:    wireA.Points[i-1],
+			End:      wireA.Points[i],
 		}
 
-		for j := 1; j < len(pointsB); j++ {
-			lastX := pointsB[j-1].X
-			lastY := pointsB[j-1].Y
-
-			currentX := pointsB[j].X
-			currentY := pointsB[j].Y
-
-			if xled {
-				if end < pointsB[j].X || pointsB[j].X < start { // if its outside the borders
-					continue
-				}
-
-				if currentX != lastX { // check for crossing in startingpoint which shouldnt be taken into account
-					continue
-				} else {
-					//     .          last
-					// -----------    pointsA[i].y
-					//     .          current
-					if currentY < lastY && pointsA[i].Y < lastY && currentY < pointsA[i].Y {
-						Xings = append(Xings, Point{
-							X: currentX,
-							Y: pointsA[i].Y,
-						})
-					} else if lastY < currentY && pointsA[i].Y < currentY && lastY < pointsA[i].Y {
-						Xings = append(Xings, Point{
-							X: currentX,
-							Y: pointsA[i].Y,
-						})
-					}
-				}
-
-			} else {
-				if end < pointsB[j].Y || pointsB[j].Y < start {
-					continue
-				}
-				if currentY != lastY {
-					continue
-				} else {
-					if currentX < lastX && wireACurrentX < lastX && currentX < wireACurrentX {
-						Xings = append(Xings, Point{
-							X: wireACurrentX,
-							Y: currentY,
-						})
-					} else if lastX < currentX && wireACurrentX < currentX && lastX < wireACurrentX {
-						Xings = append(Xings, Point{
-							X: wireACurrentX,
-							Y: currentY,
-						})
-					}
-				}
+		for j := 1; j < len(wireB.Points); j++ {
+			lineB := Line{
+				Travaled: wireB.Travaled,
+				Start:    wireB.Points[j-1],
+				End:      wireB.Points[j],
 			}
+
+			Xings = append(Xings, append(
+				findCrossing(lineA, lineB),
+				findCrossing(lineB, lineA)...,
+			)...)
 		}
 	}
 	return Xings
 }
 
-func routeWire(wire map[string][]int, index, xPos, yPos int) (int, int) { // wire = map to hold plot of the wireA and wireB
-	cords := fmt.Sprintf("%v,%v", xPos, yPos)
-	wire[cords] = append(wire[cords], index+1)
-	return xPos, yPos
+//     .          bLastB
+// -----------    aCurrentA
+//     .          bCurrentB
+func findCrossing(lineA, lineB Line) []Point {
+	if hasSameAngle(lineA, lineB) {
+		return []Point{}
+	}
+
+	aStart, aEnd := findBorders(lineA.Start.Y, lineA.End.Y)
+	if !isWithinArea(aStart, aEnd, lineB.Start.Y) {
+		return []Point{}
+	}
+
+	bStart, bEnd := findBorders(lineB.Start.X, lineB.End.X)
+	if !isWithinArea(bStart, bEnd, lineA.Start.X) {
+		return []Point{}
+	}
+
+	smallestA := getSmallest(lineA)
+	smallestB := getSmallest(lineB)
+	littleA, bigA := findBorders(smallestA.Y, lineB.Start.Y)
+	littleB, bigB := findBorders(smallestB.X, lineA.Start.X)
+	a := smallestA.LenghtTraveled + bigA - littleA
+	b := smallestB.LenghtTraveled + bigB - littleB
+	totalLenghtToXing := a + b
+
+	return []Point{{
+		LenghtTraveled: totalLenghtToXing,
+		X:              lineA.Start.X,
+		Y:              lineB.Start.Y,
+	}}
 }
 
-const (
-	R = "R"
-	L = "L"
-	D = "D"
-	U = "U"
-)
+func getSmallest(line Line) Point {
+	if line.Travaled[line.Start] < line.Travaled[line.End] {
+		return line.Start
+	}
+	return line.End
+
+}
+
+// check for crossing in starting-point which shouldnt be taken into account
+func hasSameAngle(lineA, lineB Line) bool {
+	return isVertical(lineA) && isVertical(lineB) || !isVertical(lineA) && !isVertical(lineB)
+}
+
+func isVertical(line Line) bool {
+	return line.Start.Y == line.End.Y
+}
+
+// returns true if cord is bigger then start and smaller then end
+func isWithinArea(start, end, cord int) bool {
+	return start < cord && cord < end
+}
+
+func findBorders(borderA, borderB int) (int, int) {
+	if borderB < borderA {
+		return borderB, borderA
+	}
+	return borderA, borderB
+}
