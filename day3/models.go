@@ -5,10 +5,7 @@ type Point struct {
 	Y              int
 	LenghtTraveled int
 }
-type Wire struct {
-	Travaled map[Point]int
-	Points   map[int]Point
-}
+
 type Line struct {
 	Travaled map[Point]int
 	Start    Point

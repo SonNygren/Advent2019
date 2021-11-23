@@ -18,7 +18,7 @@ func Part1() error {
 		wirePaths = append(wirePaths, strings.Split(v, ","))
 	}
 
-	wires := []Wire{}
+	wires := []map[int]Point{}
 	for _, path := range wirePaths {
 		wire, err := TraverseWire(path)
 		if err != nil {
@@ -27,12 +27,10 @@ func Part1() error {
 		wires = append(wires, wire)
 	}
 
-	res := GetPositions(wires[0], wires[1])
+	res := findCrossCoords(wires[0], wires[1])
 
 	shortest := res[0].LenghtTraveled
-
 	for _, crossCoords := range res {
-		fmt.Printf("crossCoords: %v\n", crossCoords)
 		if crossCoords.LenghtTraveled < shortest {
 			shortest = crossCoords.LenghtTraveled
 		}
@@ -58,13 +56,10 @@ func turnPositive(num int) int {
 	return num
 }
 
-func TraverseWire(path []string) (Wire, error) {
-	wire := Wire{
-		Travaled: map[Point]int{},
-		Points:   map[int]Point{},
+func TraverseWire(path []string) (map[int]Point, error) {
+	wire := map[int]Point{
+		0: {0, 0, 0},
 	}
-	startPoint := Point{0, 0, 0}
-	wire.Points[0] = startPoint
 
 	xPos := 0
 	yPos := 0
@@ -74,7 +69,7 @@ func TraverseWire(path []string) (Wire, error) {
 		direction := string(value[0])
 		movement, err := strconv.Atoi(value[1:])
 		if err != nil {
-			return Wire{}, fmt.Errorf("failed to parse movement Err: %v", err.Error())
+			return map[int]Point{}, fmt.Errorf("failed to parse movement Err: %v", err.Error())
 		}
 		switch direction {
 		case R:
@@ -88,35 +83,40 @@ func TraverseWire(path []string) (Wire, error) {
 		}
 
 		traveled += movement
-		point := Point{xPos, yPos, traveled}
-		wire.Travaled[point] = traveled
-		wire.Points[index+1] = point
+		wire[index+1] = Point{xPos, yPos, traveled}
 	}
 	return wire, nil
 }
 
-func GetPositions(wireA, wireB Wire) []Point {
+func findCrossCoords(wireA, wireB map[int]Point) []Point {
 	Xings := []Point{}
-	for i := 1; i < len(wireA.Points); i++ {
-		lineA := Line{
-			Travaled: wireA.Travaled,
-			Start:    wireA.Points[i-1],
-			End:      wireA.Points[i],
+	wireALines := map[int]Line{}
+	wireBLines := map[int]Line{}
+
+	for i := 1; i < len(wireA); i++ {
+		wireALines[i-1] = Line{
+			Start: wireA[i-1],
+			End:   wireA[i],
+		}
+	}
+
+	for i := 1; i < len(wireB); i++ {
+		wireBLines[i-1] = Line{
+			Start: wireB[i-1],
+			End:   wireB[i],
 		}
 
-		for j := 1; j < len(wireB.Points); j++ {
-			lineB := Line{
-				Travaled: wireB.Travaled,
-				Start:    wireB.Points[j-1],
-				End:      wireB.Points[j],
-			}
+	}
 
+	for i := 0; i < len(wireALines); i++ {
+		for j := 0; j < len(wireBLines); j++ {
 			Xings = append(Xings, append(
-				findCrossing(lineA, lineB),
-				findCrossing(lineB, lineA)...,
+				findCrossing(wireALines[i], wireBLines[j]),
+				findCrossing(wireBLines[j], wireALines[i])...,
 			)...)
 		}
 	}
+
 	return Xings
 }
 
@@ -124,7 +124,7 @@ func GetPositions(wireA, wireB Wire) []Point {
 // -----------    aCurrentA
 //     .          bCurrentB
 func findCrossing(lineA, lineB Line) []Point {
-	if hasSameAngle(lineA, lineB) {
+	if areParalele(lineA, lineB) {
 		return []Point{}
 	}
 
@@ -138,8 +138,8 @@ func findCrossing(lineA, lineB Line) []Point {
 		return []Point{}
 	}
 
-	smallestA := getSmallest(lineA)
-	smallestB := getSmallest(lineB)
+	smallestA := getSmallest(lineA.Start, lineA.End)
+	smallestB := getSmallest(lineB.Start, lineB.End)
 	littleA, bigA := findBorders(smallestA.Y, lineB.Start.Y)
 	littleB, bigB := findBorders(smallestB.X, lineA.Start.X)
 	a := smallestA.LenghtTraveled + bigA - littleA
@@ -153,16 +153,15 @@ func findCrossing(lineA, lineB Line) []Point {
 	}}
 }
 
-func getSmallest(line Line) Point {
-	if line.Travaled[line.Start] < line.Travaled[line.End] {
-		return line.Start
+func getSmallest(start, end Point) Point {
+	if start.LenghtTraveled < end.LenghtTraveled {
+		return start
 	}
-	return line.End
-
+	return end
 }
 
 // check for crossing in starting-point which shouldnt be taken into account
-func hasSameAngle(lineA, lineB Line) bool {
+func areParalele(lineA, lineB Line) bool {
 	return isVertical(lineA) && isVertical(lineB) || !isVertical(lineA) && !isVertical(lineB)
 }
 
